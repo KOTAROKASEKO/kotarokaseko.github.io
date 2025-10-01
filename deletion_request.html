@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Property Match — Account Deletion Request</title>
+  <style>
+    /* Basic modern layout, responsive */
+    :root{
+      --bg:#f6f9fc;
+      --card:#ffffff;
+      --accent:#0066cc;
+      --muted:#6b7280;
+      --danger:#c62828;
+      --success:#1e7e34;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:linear-gradient(180deg, var(--bg), #eef4fb 70%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+      color:#0f172a;
+    }
+
+    .card{
+      width:100%;
+      max-width:760px;
+      background:var(--card);
+      border-radius:14px;
+      box-shadow:0 10px 30px rgba(12,25,50,0.08);
+      padding:28px;
+      box-sizing:border-box;
+    }
+
+    h1{margin:0 0 8px; font-size:20px}
+    p.lead{margin:0 0 18px; color:var(--muted)}
+
+    form .row{display:flex; gap:12px; flex-wrap:wrap}
+    label{display:block; font-size:13px; margin-bottom:6px; color:#0b1220}
+    input[type="email"], input[type="text"], textarea{
+      width:100%;
+      padding:10px 12px;
+      border-radius:8px;
+      border:1px solid #e6eef6;
+      background:#fbfdff;
+      box-sizing:border-box;
+      font-size:14px;
+      outline:none;
+    }
+    textarea{min-height:120px; resize:vertical}
+
+    .controls{display:flex; gap:10px; margin-top:14px; flex-wrap:wrap}
+    button{
+      padding:10px 14px;
+      border-radius:10px;
+      border:0;
+      cursor:pointer;
+      font-weight:600;
+      font-size:14px;
+    }
+    .btn-primary{background:var(--accent); color:white}
+    .btn-secondary{background:transparent; color:var(--accent); border:1px solid #dbeefc}
+    .muted{color:var(--muted); font-size:13px}
+
+    .helper{font-size:13px; color:var(--muted); margin-top:10px}
+
+    .msg{padding:10px 12px; border-radius:8px; margin-top:12px; font-size:14px}
+    .msg.success{background:#e6f6ea; color:var(--success); border:1px solid #d0f0d3}
+    .msg.error{background:#fff1f0; color:var(--danger); border:1px solid #f5c2c2}
+
+    .small{font-size:12px; color:var(--muted)}
+
+    /* mobile layout tweaks */
+    @media(min-width:720px){
+      .two{flex:1 1 48%}
+    }
+
+    /* subtle focus */
+    input:focus, textarea:focus{box-shadow:0 0 0 4px rgba(0,102,204,0.08); border-color:var(--accent)}
+  </style>
+</head>
+<body>
+  <main class="card" role="main">
+    <h1>Request account deletion — Property Match</h1>
+    <p class="lead">Use this page to request deletion of an account. A copy of your request will be sent to <strong>kotaroakse@gmail.com</strong>.</p>
+
+    <form id="deleteForm" novalidate>
+      <div class="row">
+        <div class="two" style="flex-basis:100%;">
+          <label for="email">Your email address</label>
+          <input id="email" name="email" type="email" placeholder="you@example.com" required autocomplete="email" />
+        </div>
+
+        <div class="two" style="flex-basis:100%;">
+          <label for="name">Your name (optional)</label>
+          <input id="name" name="name" type="text" placeholder="Full name (optional)" autocomplete="name" />
+        </div>
+
+        <div style="flex-basis:100%;">
+          <label for="reason">Reason for deletion (optional)</label>
+          <textarea id="reason" name="reason" placeholder="Tell us why you want to delete the account (optional)"></textarea>
+        </div>
+
+        <!-- honeypot (anti-bot) -->
+        <div style="display:none" aria-hidden="true">
+          <label>Leave this empty</label>
+          <input name="website" type="text" autocomplete="off" />
+        </div>
+
+        <div style="flex-basis:100%;">
+          <label>
+            <input id="confirm" type="checkbox" required />
+            <span class="small">I confirm that I want my account deleted and understand this action cannot be undone.</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="controls">
+        <!-- Option A: open user's email client -->
+        <button id="mailtoBtn" type="button" class="btn-primary" title="Opens your email client with a prefilled message">Send using my email client</button>
+
+        <!-- Option B: submit to a backend -->
+        <button id="postBtn" type="button" class="btn-secondary" title="Send request to the server">Submit via server (recommended if available)</button>
+
+        <div style="align-self:center" class="muted">or copy this email: <strong>kotaroakse@gmail.com</strong></div>
+      </div>
+
+      <div id="result" aria-live="polite"></div>
+
+      <p class="helper">Privacy: Only the request data is delivered to the target email or server. Do not include passwords or sensitive information in the message body. If you want this to be a legally binding deletion request, include your account id or other identification details.</p>
+    </form>
+  </main>
+
+  <script>
+    (function(){
+      const emailInput = document.getElementById('email');
+      const nameInput = document.getElementById('name');
+      const reasonInput = document.getElementById('reason');
+      const confirmCB = document.getElementById('confirm');
+      const mailtoBtn = document.getElementById('mailtoBtn');
+      const postBtn = document.getElementById('postBtn');
+      const result = document.getElementById('result');
+      const form = document.getElementById('deleteForm');
+
+      // Replace this with your real server endpoint if you have one.
+      // Example: const SERVER_ENDPOINT = 'https://your-domain.com/api/account-delete'
+      const SERVER_ENDPOINT = 'https://example.com/api/account-delete'; // <-- CHANGE THIS
+
+      function showMessage(text, type) {
+        result.innerHTML = '';
+        const div = document.createElement('div');
+        div.className = 'msg ' + (type === 'success' ? 'success' : 'error');
+        div.textContent = text;
+        result.appendChild(div);
+      }
+
+      function validate() {
+        // basic HTML5 validity plus checkbox
+        if (!emailInput.value) {
+          showMessage('Please enter your email address.', 'error');
+          emailInput.focus();
+          return false;
+        }
+        // simple email pattern (HTML5 will also validate)
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value)) {
+          showMessage('Please enter a valid email address.', 'error');
+          emailInput.focus();
+          return false;
+        }
+        if (!confirmCB.checked) {
+          showMessage('Please confirm you want the account deleted.', 'error');
+          confirmCB.focus();
+          return false;
+        }
+        return true;
+      }
+
+      // Option A: mailto (opens user's mail client)
+      mailtoBtn.addEventListener('click', function(){
+        if (!validate()) return;
+        // construct subject and body
+        const recipient = 'kotaroakse@gmail.com';
+        const subject = encodeURIComponent('Account deletion request — Property Match');
+        const lines = [];
+        lines.push('Account Deletion Request');
+        lines.push('');
+        lines.push('Requester email: ' + emailInput.value);
+        if (nameInput.value.trim()) lines.push('Requester name: ' + nameInput.value.trim());
+        if (reasonInput.value.trim()) {
+          lines.push('');
+          lines.push('Reason:');
+          lines.push(reasonInput.value.trim());
+        }
+        lines.push('');
+        lines.push('Please delete the account associated with the email above. I confirm I want this account deleted and understand this action may be irreversible.');
+        const body = encodeURIComponent(lines.join('\n'));
+        // open mailto
+        const mailto = `mailto:${recipient}?subject=${subject}&body=${body}`;
+        // try to open mailto; browsers will open default client
+        window.location.href = mailto;
+        showMessage('If your mail client opened, send the email to complete the request. If not, copy the email address: kotaroakse@gmail.com', 'success');
+      });
+
+      // Option B: POST to server endpoint (AJAX)
+      postBtn.addEventListener('click', async function(){
+        if (!validate()) return;
+        // detect honeypot (if any value exists we abort)
+        const honeypot = form.querySelector('input[name="website"]');
+        if (honeypot && honeypot.value) {
+          showMessage('Bot detection triggered. Submission blocked.', 'error');
+          return;
+        }
+
+        // If SERVER_ENDPOINT is placeholder, warn user
+        if (!SERVER_ENDPOINT || SERVER_ENDPOINT.includes('example.com')) {
+          showMessage('Server endpoint is not configured. Replace SERVER_ENDPOINT in the script with your API endpoint to enable direct submission.', 'error');
+          return;
+        }
+
+        // assemble payload
+        const payload = {
+          requesterEmail: emailInput.value.trim(),
+          requesterName: nameInput.value.trim() || undefined,
+          reason: reasonInput.value.trim() || undefined,
+          requestedAt: new Date().toISOString(),
+          source: 'property_match:web-delete-form'
+        };
+
+        // send
+        try {
+          postBtn.disabled = true;
+          postBtn.textContent = 'Sending...';
+          const resp = await fetch(SERVER_ENDPOINT, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+          });
+
+          if (!resp.ok) {
+            const text = await resp.text().catch(()=>null);
+            throw new Error('Server responded with status ' + resp.status + (text ? (': '+text) : ''));
+          }
+
+          showMessage('Deletion request sent to site administrator. You should receive a confirmation email soon, if provided.', 'success');
+          form.reset();
+        } catch (err) {
+          console.error(err);
+          showMessage('Failed to send request: ' + (err.message || err), 'error');
+        } finally {
+          postBtn.disabled = false;
+          postBtn.textContent = 'Submit via server (recommended if available)';
+        }
+      });
+
+      // accessibility: allow enter key on inputs to trigger mailto by default
+      form.addEventListener('submit', function(e){
+        e.preventDefault();
+        mailtoBtn.click();
+      });
+    })();
+  </script>
+</body>
+</html>
+
